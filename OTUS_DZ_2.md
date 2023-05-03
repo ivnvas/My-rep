@@ -10,7 +10,7 @@ curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh && r
 ```
 sudo docker network create pg-net
 ```
-![](https://disk.yandex.ru/i/ozZIqNt3S8iySg)
+![inst](https://disk.yandex.ru/i/ozZIqNt3S8iySg)
 
 * сделать каталог /var/lib/postgres </br>
 ```
@@ -61,3 +61,6 @@ sudo docker run -it --rm --network pg-net --name pg-client postgres:15 psql -h p
 ```postgres
 select * from tmp_ut;
 ```
+
+
+[def]: https://disk.yandex.ru/i/ozZIqNt3S8iySg
