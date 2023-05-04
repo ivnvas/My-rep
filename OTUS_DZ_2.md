@@ -7,10 +7,14 @@
 curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh && rm get-docker.sh && sudo usermod -aG docker $USER
 ```
 </br>создаем сеть:</br>
+возникли некоторые трудности с установкой сети, поэтому пришлось устанавливать и удалять их, но в итоге установил сеть
+
 ```
 sudo docker network create pg-net
 ```
-![inst](https://disk.yandex.ru/i/ozZIqNt3S8iySg)
+
+![Inst](scrin/docker_net.png) 
+
 
 * сделать каталог /var/lib/postgres </br>
 ```
@@ -25,7 +29,6 @@ sudo docker run --name pg-server --network pg-net -e POSTGRES_PASSWORD=postgres 
 sudo lsof -i -P -n
 ```
 затем кильнул процесс postgres и стартанул контейнер. 
-
 * развернуть контейнер с клиентом postgres</br>
 ```
 sudo docker run -it --rm --network pg-net --name pg-client postgres:15 psql -h pg-server -U postgres
@@ -37,18 +40,19 @@ create table tmp_ut (name varchar(20));
 insert into tmp_ut (name) values('Ivan');
 insert into tmp_ut (name) values('Olga');
 ```
+![table](scrin/docker_table.png) 
 * подключится к контейнеру с сервером с ноутбука/компьютера извне инстансов GCP/ЯО/места установки докера</br>
 ```
 sql -h localhost -U postgres -d postgres
 ```
-
+![connect](scrin/docker_izvne.png) 
 * удалить контейнер с серверомM</br>
 ```
 docker stop pg-server
 docker rm pg-server
 docker ps
 ```
-
+![delete](scrin/docker_rm.png) 
 * создать его заново
 ```
 sudo docker run --name pg-server --network pg-net -e POSTGRES_PASSWORD=postgres -d -p 5432:5432 -v /var/lib/postgres:/var/lib/postgresql/data postgres:15
@@ -57,10 +61,9 @@ sudo docker run --name pg-server --network pg-net -e POSTGRES_PASSWORD=postgres 
 ```
 sudo docker run -it --rm --network pg-net --name pg-client postgres:15 psql -h pg-server -U postgres
 ```
-* проверить, что данные остались на месте
+* проверить, что данные остались на месте</br>
+Записи имеются
 ```postgres
 select * from tmp_ut;
 ```
-
-
-[def]: https://disk.yandex.ru/i/ozZIqNt3S8iySg
+![fin](scrin/finish.png) 
