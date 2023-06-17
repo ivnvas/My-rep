@@ -1,102 +1,126 @@
 ## **Работа с журналами**
 
-**1. Настройте сервер так, чтобы в журнал сообщений сбрасывалась информация о блокировках, удерживаемых более 200 миллисекунд. Воспроизведите ситуацию, при которой в журнале появятся такие сообщения.**</br>
+**1. Настройте выполнение контрольной точки раз в 30 секунд.**</br>
+![Inst](sc7/par.png) 
+
 ```postgres
-SHOW log_lock_waits; 
-SHOW deadlock_timeout; 
-ALTER SYSTEM SET log_lock_waits=on;
-ALTER SYSTEM SET deadlock_timeout = '200ms';
-SELECT pg_reload_conf();
-SHOW log_lock_waits; 
-SHOW deadlock_timeout; 
-
----создвем таблицу----
-create table test_les9 (num int, name varchar);
-insert into test_les9 (num,name) values(1,'Ivan'),(2, 'Sergey'),(3, 'Kate');
-
----смотрим есть ли блокировки:
-SELECT locktype, relation::REGCLASS, mode, granted, pid, pg_blocking_pids(pid) AS wait_for
-FROM pg_locks WHERE relation = 'test_les9'::regclass order by pid;
----блокировок нет
-
----в первой сессии запускаем транзакцию---
-BEGIN;
-update test_les9 set name='Olga' where num=1;
-
---Во второй сессии запускаем тоже транзакцию
-BEGIN;
-update test_les9 set name='Masha' where num=1;
-
----Смотрим, что получилось: 
-tail -n 10 /var/log/postgresql/postgresql-15-main.log
+alter system set checkpoint_timeout='30s';
+---рестартанем кластер
+sudo pg_ctlcluster 15 main2 restart
+show checkpoint_timeout;
 ```
-![Inst](scrin_9/par.png) 
-![Inst](scrin_9/log1.png)
+**2. 10 минут c помощью утилиты pgbench подавайте нагрузку.**</br>
 
-**2. Смоделируйте ситуацию обновления одной и той же строки тремя командами UPDATE в разных сеансах. Изучите возникшие блокировки в представлении pg_locks и убедитесь, что все они понятны. Пришлите список блокировок и объясните, что значит каждая.**</br>
+Посмотрим, какие у нас файлы журналов имеются:
 ```postgres
----в первом сеансе
-BEGIN;
-SELECT txid_current(), pg_backend_pid(); --768,3791
-update test_les9 set name='Ivan' where num=2;
-
----в втором сеансе
-BEGIN;
-SELECT txid_current(), pg_backend_pid(); --769,3926
-update test_les9 set name='Petr' where num=2;
-
----в третьем сеансе
-BEGIN;
-SELECT txid_current(), pg_backend_pid(); --770,5914
-update test_les9 set name='Andrey' where num=2;
-
+select * from pg_ls_waldir();
 ```
-Вторая и третья транзакция повисает, так как ждет, когда закончится первая транзакция.</br>
-Посмотрим, что пишется pg_locks
-![Inst](scrin_9/log2.png)
-Итого, мы видим, что первая транзакция 3791, не завершена имеется RowExclusive-блокировка (т.е. блокировка строки).</br>
-Втора транзакция 3926 ожидает выполнения первой wait_for={3791}. Имеется одна RowExclusive-блокировка (т.е. блокировка строки) и еще блокировка (tuple), которая также ссылается на первую стороку wait_for={3791}.</br>
-Третья транзакция 5914 ожидает выполнения второй wait_for={3926} и содержит tuple, который ссылается на tuple из второй транзакции wait_for={3926}.</br>
-Последующие сессии, если бы мы их создали также содержали бы tuple, который ссылался бы на tuple из второй транзакции.</br>
-**3. Воспроизведите взаимоблокировку трех транзакций. Можно ли разобраться в ситуации постфактум, изучая журнал сообщений?**</br>
+Имеется один файл:  000000010000000000000001 
+
 ```postgres
------изменения в разных строках---
----создвем таблицу----
-create table test_9 (num int, name varchar);
-insert into test_9 (num,name) values(1,'Ivan'),(2, 'Sergey'),(3, 'Kate');
-
-
--- Session #1
-BEGIN;
-SELECT txid_current(), pg_backend_pid(); --782 |           6434
-
-update test_9 set name='Ivan' where num=1;
-
--- Session #2
-BEGIN;
-SELECT txid_current(), pg_backend_pid(); --783 |           6441
-update test_9 set name='Olga' where num=2;
-
--- Session #3
-BEGIN;
-SELECT txid_current(), pg_backend_pid(); --784 |           6447
-update test_9 set name='Petr' where num=3;
-
-----изменения по второму кругу----------
--- Session #1
-update test_9 set name='Andrey' where num=2;
-
--- Session #2
-update test_9 set name='Kate' where num=3;
-
--- Session #3
-update test_9 set name='Sergey' where num=1;
+pgbench -i postgres -p 5433
+pgbench -c 50 -j 2 -P 10 -T 600 postgres -p 5433
 ```
-Выдал след. сообщение в третьей транзакции:
-![Inst](scrin_9/block.png)
+![Inst](sc7/bench.png) 
+**3. Измерьте, какой объем журнальных файлов был сгенерирован за это время. Оцените, какой объем приходится в среднем на одну контрольную точку.**</br>
 
-В ситуации можно разобраться смотря в журнал
-![Inst](scrin_9/block1.png)
+```postgres
+select count (*) from pg_ls_waldir() where name!='000000010000000000000001';
+```
+![Inst](sc7/count.png) 
 
-**4. Могут ли две транзакции, выполняющие единственную команду UPDATE одной и той же таблицы (без where), заблокировать друг друга?**</br>
-Да, могут. Если идет обновление всей таблицы. Одна команда Update обновляет таблицу с одной стороны, а другая команда Update c другой стороны. ВОт и получается взаимоблокировка.
+Итого, было сформировано 27 журнальных файлов.
+
+За все время тестов 10 мин. у нас должно быть 20 контрольных точек. 
+
+**4. Проверьте данные статистики: все ли контрольные точки выполнялись точно по расписанию. Почему так произошло?**</br>
+
+```postgres
+SELECT * FROM pg_stat_bgwriter;
+```
+![Inst](sc7/stat.png) 
+Из статистики видно, что по расписанию checkpoints_timed за все время было выполнено 170 контрольных точек.</br>
+Кроме этого 3 контрольные точки были выполнены по требованию checkpoints_req=3.Но это старые контрольные точки, не связанные с данным тестированием.</br>
+
+Таким образом, контрольные точки происходят по расписанию: раз в checkpoint_timeout единиц времени. Но теоретически, при повышенной нагрузке контрольные точки могут вызываться чаще, при
+достижении объема max_wal_size.
+
+**5. Сравните tps в синхронном/асинхронном режиме утилитой pgbench. Объясните полученный результат.**</br>
+Сначала погоняем тесты в синхронном режиме 30 секунд:
+```postgres
+alter system set synchronous_commit='on';
+pgbench -c 50 -j 2 -P 10 -T 30 postgres -p 5433
+```
+![Inst](sc7/synch.png) 
+Теперь попробуем в асинхронном режиме протестировать:
+```postgres
+alter system set synchronous_commit='off';
+sudo pg_ctlcluster 15 main2 restart
+pgbench -c 50 -j 2 -P 10 -T 30 postgres -p 5433
+```
+![Inst](sc7/asynch.png) 
+
+В синронном режиме tps= 404, а в асинхронном режиме tps = 816 (в два раза больше операций обрабатывается !!!). 
+
+Увеличение количества обработанной информации за единицу времени связано с тем, что в асинхронном режиме фиксация изменений не ждет записи на диск.
+
+**6. Создайте новый кластер с включенной контрольной суммой страниц. Создайте таблицу. Вставьте несколько значений. Выключите кластер. Измените пару байт в таблице. Включите кластер и сделайте выборку из таблицы. Что и почему произошло? как проигнорировать ошибку и продолжить работу?**</br>
+```postgres
+sudo pg_ctlcluster 15 main2 stop
+---проверяем:
+sudo su - postgres -c '/usr/lib/postgresql/15/bin/pg_controldata -D "/var/lib/postgresql/15/main2"' | grep state
+---выдал ответ:  Database cluster state:               shut down
+---включаем контрольные суммы:
+sudo su - postgres -c '/usr/lib/postgresql/15/bin/pg_checksums --enable -D "/var/lib/postgresql/15/main2"'
+```
+Результат: 
+```
+Checksum operation completed
+Files scanned:   1269
+Blocks scanned:  6305
+Files written:  1049
+Blocks written: 6305
+pg_checksums: syncing data directory
+pg_checksums: updating control file
+Checksums enabled in cluster
+```
+Запускаем кластер:
+```postgres
+sudo pg_ctlcluster 15 main2 start
+```
+Создаем таблицу:
+```postgres
+CREATE TABLE test(i int, name varchar);
+INSERT INTO test 
+SELECT s.id,md5(id::varchar) FROM generate_series(1,100) AS s(id); 
+
+SELECT pg_relation_filepath('test');  ---получаем значение: base/5/16398
+```
+-- Остановим сервер и поменяем несколько байтов в странице (сотрем из заголовка LSN последней журнальной записи)
+```postgres
+sudo pg_ctlcluster 15 main2 stop
+sudo dd if=/dev/zero of=/var/lib/postgresql/15/main2/base/5/16398 oflag=dsync conv=notrunc bs=1 count=8
+```
+Получаем:
+```
+8+0 записей получено
+8+0 записей отправлено
+8 байт скопировано, 0,0102996 s, 0,8 kB/s
+```
+Включаем и смотрим таблицу:
+```postgres
+sudo pg_ctlcluster 15 main2 start
+select * from test;
+```
+Получаем предупреждение:
+```
+ПРЕДУПРЕЖДЕНИЕ:  ошибка проверки страницы: получена контрольная сумма 47457, а ожидалась - 28301
+ОШИБКА:  неверная страница в блоке 0 отношения base/5/16398
+```
+Проблема в том, что мы испортили заголовок страницы.</br>
+Чтобы прочитать, нужно изменить параметр ignore_checksum_failure, который позволяет попробовать прочитать таблицу, но с риском получить искаженные данные.
+
+```postgres
+alter system set ignore_checksum_failure=on;
+select * from test;
+```
