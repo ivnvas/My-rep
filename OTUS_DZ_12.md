@@ -40,7 +40,12 @@ CREATE TABLE bookings.flights_p_201711 PARTITION of bookings.flights_p FOR value
 CREATE TABLE bookings.flights_p_201712 PARTITION of bookings.flights_p FOR values from (to_date('01.12.2017 00:00:00','dd.mm.yyyy hh24:mi:ss')) to (to_date('31.12.2017 23:59:59','dd.mm.yyyy hh24:mi:ss') );
 create table bookings.flights_p_def partition of bookings.flights_p default;
 ```
-**6. Проверим результат**
+**6. Заполняем таблицу данными из bookings.flights**
+```postgres
+insert into bookings.flights_p select * from bookings.flights;
+```
+
+**7. Проверим результат**
 ```postgres
 select '201701' part, count (*) from bookings.flights_p_201701
 union all
