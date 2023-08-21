@@ -198,7 +198,7 @@ sudo mkdir /etc/patroni
 sudo nano /etc/patroni/patroni.yml
 ```
 
-```json
+```
 name: host-02
 scope: postgres
 
@@ -339,3 +339,11 @@ patronictl -c /etc/patroni/patroni.yml switchover postgres
 Теперь лидер host-03.
 
 ### **4. Установка PgBouncer**
+Это программа для создания пула соединений, позволяет уменьшить накладные расходы на базу данных в случае, когда очень большое количество физических соединений ведет к падению производительности PostgreSQL
+```
+sudo apt install pgbouncer
+```
+Далее открываем конфиг:
+```
+sudo nano /etc/pgbouncer/pgbouncer.ini 
+```
