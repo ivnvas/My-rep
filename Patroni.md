@@ -3,7 +3,7 @@
 ### **1. Разворачиваем 3 ВМ в Яндекс Облаке и устанавливаем Postgres**</br>
 В итоге получаем 3 ВМ, подключаемся к ним по SSH через свою локальную ВМ.
 Для этого генирирем SSH-ключ и прописываем публичный ключ в настройках, при создании ВМ в Яндексе.
-![Inst](itog/VM.png) 
+![Inst](Itog/VM.png) 
 Далее устанавливаем Postgres 15 на этих 3-х ВМ.</br>
 Подключение к ВМ:
 ```
@@ -35,7 +35,7 @@ scp consul-133531-13cd73 otus@158.160.70.46:\tmp
 scp consul-133531-13cd73 otus2@158.160.64.41:\tmp
 scp consul-133531-13cd73 otus3@158.160.21.118:\tmp
 ```
-![Inst](itog/consul.png) 
+![Inst](Itog/consul.png) 
 Заходим на каждую машину и устанавливаем и настраиваем консул. Для удобства переименуем бинарник уонсула
 
 ```postgres
@@ -58,7 +58,7 @@ sudo chmod 775 /var/lib/consul /etc/consul.d
 ```
 consul keygen
 ```
-![Inst](itog/key_con.png) </br>
+![Inst](Itog/key_con.png) </br>
 Создаем конфигурационный файл для консула config.json:
 ```
 sudo nano /etc/consul.d/config.json
@@ -119,7 +119,7 @@ sudo nano /etc/consul.d/config.json
 ```
 consul validate /etc/consul.d/config.json
 ```
-![Inst](itog/conf_valid.png)
+![Inst](Itog/conf_valid.png)
 
 Должна быть строчка: **Configuration is valid!**
 </br>
@@ -161,22 +161,22 @@ sudo systemctl enable consul
 ---Смотрим текущее состояние работы сервиса:
 systemctl status consul
 ```
-![Inst](itog/consul_stat.png)
+![Inst](Itog/consul_stat.png)
 Состояние ноды:
 ```
 consul members
 ```
-![Inst](itog/mem_nod.png)
+![Inst](Itog/mem_nod.png)
 
 Создаем конфиг. файл config.json и consul.service на двух остальных машинах, при этом в consul.service меняем наименование ноды на consul02.dmosk.local и consul03.dmosk.local. Также делаем релоад стартуем и смотрим статус. Получаем следующие статусы остальных двух нод:
 
-![Inst](itog/consul_stat3.png)
-![Inst](itog/consul_stat2.png)
+![Inst](Itog/consul_stat3.png)
+![Inst](Itog/consul_stat2.png)
 
 Также доступен web интерфейс для проверки статуса, обратившись, например по адресу:  
 http://158.160.64.41:8500, где ip-адрес - любой из 3-х нод.
 
-![Inst](itog/web_consul.png)
+![Inst](Itog/web_consul.png)
 На этом установка consul завершена.
 
 ### **3. Установка Patroni**</br>
@@ -309,33 +309,33 @@ sudo systemctl enable patroni
 --Проверяем статусы сервиса на обоих серверах:
 sudo systemctl status patroni
 ```
-![Inst](itog/patroni_stat.png)
+![Inst](Itog/patroni_stat.png)
 Видим, что сервис активный.
 
 ПРоверяем также командой:
 ```
 patronictl -c /etc/patroni/patroni.yml list
 ```
-![Inst](itog/pat_stat.png)
+![Inst](Itog/pat_stat.png)
 </br>
 Далее устанавливаем для остальных двух.</br>
 Итого получаем статус:</br>
-![Inst](itog/patroni_itog.png)</br>
+![Inst](Itog/patroni_itog.png)</br>
 Перезапустил host-01, статус реплик изменился от streaming на running:</br>
-![Inst](itog/pat_stat_run.png)
+![Inst](Itog/pat_stat_run.png)
 </br>Но через некоторое время статус реплик стал опять streaming.
 изменим в файле.</br>
 Мы можем переопределить ролдь Leader на другую ноду, для этог выполним:
 ```
 patronictl -c /etc/patroni/patroni.yml switchover postgres
 ```
-![Inst](itog/swich.png)</br>
+![Inst](Itog/swich.png)</br>
 
 Под 1 система указывает, кто сейчас является лидером, в нашем случае host-01</br>
 Далее под 2 указывает какие есть кандидаты, ввожу host-02. Затем видно из скриншота, что лидер поменялся, как мы и хотели.
 
 Также для теста пробуем отключить один из серверов, например host-02, который является лидером. Роли перераспределяются между оставшимися: </br>
-![Inst](itog/swich_off.png)</br>
+![Inst](Itog/swich_off.png)</br>
 Теперь лидер host-03.
 
 ### **4. Установка PgBouncer**
