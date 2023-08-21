@@ -340,10 +340,62 @@ patronictl -c /etc/patroni/patroni.yml switchover postgres
 
 ### **4. Установка PgBouncer**
 Это программа для создания пула соединений, позволяет уменьшить накладные расходы на базу данных в случае, когда очень большое количество физических соединений ведет к падению производительности PostgreSQL
+Создаем на всех трех машинах, где установлен Postgres с Patroni
 ```
 sudo apt install pgbouncer
 ```
-Далее открываем конфиг:
+Проверем статус на всех ВМ, везде активно:
+```
+sudo systemctl status pgbouncer
+```
+![Inst](Itog/bouncer_stat.png)</br>
+
+Останавливаем pgbouncer, чтоб править конфиг
+
+```
+sudo systemctl stop pgbouncer
+```
+Далее открываем и правим конфиг:
+
 ```
 sudo nano /etc/pgbouncer/pgbouncer.ini 
 ```
+Дописываем в конце следующую информацию:
+```
+[databases]
+* = host=127.0.0.1 port=5432 dbname=test
+[pgbouncer]
+logfile = /var/log/postgresql/pgbouncer.log
+pidfile = /var/run/postgresql/pgbouncer.pid
+listen_addr = *
+listen_port = 6432
+auth_type = md5
+auth_file = /etc/pgbouncer/userlist.txt
+admin_users = postgres
+```
+![Inst](Itog/bounc_ini.png)</br>
+
+
+Далее стартуем и проверяем статус:
+```
+sudo systemctl start pgbouncer
+sudo systemctl status pgbouncer
+```
+![Inst](Itog/bounc_stat1.png)</br>
+pgbouncer работает.
+
+Создаем БД test на ВМ, которая сейчас является Лидером. в нашем случае это host-02
+![Inst](Itog/DB_L.png)</br>
+На реплике создать БД не дает.
+```postgres
+postgres=# CREATE DATABASE test;
+---выдает ошибку:
+ERROR:  cannot execute CREATE DATABASE in a read-only transaction
+```
+pgbouncer сидит на порту 6432, попробуем подключиться к созданной базе через pgbouncer:
+
+```
+sudo -u postgres psql -p 6432 -h 172.0.0.1 test
+```
+В итоге подключиться удается. pgbouncer настроен.
+
