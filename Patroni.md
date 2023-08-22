@@ -344,6 +344,12 @@ patronictl -c /etc/patroni/patroni.yml switchover postgres
 ```
 sudo apt install pgbouncer
 ```
+```postgres
+---Стартуем pgbouncer
+sudo systemctl start pgbouncer
+---Разрешаем автоматический старт при запуске сервера:
+sudo systemctl enable pgbouncer
+```
 Проверем статус на всех ВМ, везде активно:
 ```
 sudo systemctl status pgbouncer
@@ -360,11 +366,12 @@ sudo systemctl stop pgbouncer
 ```
 sudo nano /etc/pgbouncer/pgbouncer.ini 
 ```
-Дописываем в конце следующую информацию:
-```
-[databases]
-* = host=127.0.0.1 port=5432 dbname=test
-[pgbouncer]
+Дописываем информацию:
+```postgres
+---в раздел [databases] записываем:
+* = host=172.0.0.1 port=5432 dbname=postgres
+
+---в раздел [pgbouncer] записываем:
 logfile = /var/log/postgresql/pgbouncer.log
 pidfile = /var/run/postgresql/pgbouncer.pid
 listen_addr = *
@@ -384,19 +391,28 @@ sudo systemctl status pgbouncer
 ![Inst](Itog/bounc_stat1.png)</br>
 pgbouncer работает.
 
-Создаем БД test на ВМ, которая сейчас является Лидером. в нашем случае это host-02
-![Inst](Itog/DB_L.png)</br>
-На реплике создать БД не дает.
-```postgres
-postgres=# CREATE DATABASE test;
----выдает ошибку:
-ERROR:  cannot execute CREATE DATABASE in a read-only transaction
-```
+
 pgbouncer сидит на порту 6432, попробуем подключиться к созданной базе через pgbouncer:
+Но для этого создаем файл userlist.txt и прописываем пароль для пользователя postgres в файле.
 
+Запускаем такую команду:
+```postgres
+sudo -u postgres psql -Atq -h 127.0.0.1 -p 5432 -U postgres -d postgres -c "SELECT concat('\"', usename, '\" \"', passwd, '\"') FROM pg_shadow" >> /tmp/userlist.txt && \
+sudo mv /tmp/userlist.txt /etc/pgbouncer/userlist.txt
 ```
-sudo -u postgres psql -p 6432 -h 172.0.0.1 test
+Смотрим, что записалось в файл: 
 ```
-В итоге подключиться удается. pgbouncer настроен.
+cat /etc/pgbouncer/userlist.txt
+```
+![Inst](Itog/userlist.png)</br>
 
-Также для стабильной работы, можно еще установить HAPROXY, выделив для этого еще два отдельных сервера - для обеспечения высокой доступности и балансировки нагрузки посредством распределения входящих запросов на несколько обслуживающих серверов. Но в рамках данной работы HAPROXY рассмотрен не будет.
+Пробуем подключиться к базе через pgbouncer:
+```
+sudo -u postgres psql -p 6432 -h localhost postgres
+```
+![Inst](Itog/bounc_loc.png)</br>
+В итоге, как видно подключиться удается через порт 6432. Настраиваем аналогично для двух остальных.</br>
+
+pgbouncer настроен.
+
+Также для стабильной работы, можно установить HAPROXY, выделив для этого еще два отдельных сервера - для обеспечения высокой доступности и балансировки нагрузки посредством распределения входящих запросов на несколько обслуживающих серверов. Но в рамках данной работы HAPROXY рассмотрен не будет.
