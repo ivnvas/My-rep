@@ -199,7 +199,7 @@ sudo nano /etc/patroni/patroni.yml
 ```
 
 ```
-name: host-02
+name: host-01
 scope: postgres
 
 watchdog:
@@ -234,7 +234,7 @@ bootstrap:
         wal_log_hints: "on"
       pg_hba:
         - local all all trust
-        - host replication replicator 158.160.45.235/32 trust
+        - host replication replicator 158.160.21.118/32 trust
         - host replication replicator 158.160.70.46/32 trust
         - host replication replicator 158.160.64.41/32 trust
         - host replication replicator 127.0.0.1/32 trust
