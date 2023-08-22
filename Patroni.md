@@ -6,7 +6,7 @@
 ![Inst](Itog/VM.png) 
 Далее устанавливаем Postgres 15 на этих 3-х ВМ.</br>
 Подключение к ВМ:
-```
+```postgres
 ssh -i ~/.ssh/id_rsa otus@158.160.70.46
 ssh -i ~/.ssh/id_rsa otus2@158.160.64.41
 ssh -i ~/.ssh/id_rsa otus3@158.160.21.118
@@ -20,7 +20,7 @@ sudo apt update && sudo apt upgrade -y && sudo sh -c 'echo "deb http://apt.postg
 ```
 Проверяем, что все работает.
 
-```
+```postgres
 sudo su postgres
 psql
 ```
