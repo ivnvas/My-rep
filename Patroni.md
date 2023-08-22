@@ -321,11 +321,7 @@ patronictl -c /etc/patroni/patroni.yml list
 Далее устанавливаем для остальных двух.</br>
 Итого получаем статус:</br>
 ![Inst](Itog/patroni_itog.png)</br>
-Перезапустил host-01, статус реплик изменился от streaming на running:</br>
-![Inst](Itog/pat_stat_run.png)
-</br>Но через некоторое время статус реплик стал опять streaming.
-изменим в файле.</br>
-Мы можем переопределить ролдь Leader на другую ноду, для этог выполним:
+Мы можем переопределить роль Leader на другую ноду, для этог выполним:
 ```
 patronictl -c /etc/patroni/patroni.yml switchover postgres
 ```
